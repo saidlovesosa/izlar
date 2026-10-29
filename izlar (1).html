@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Izlar: sayohat xotira daftari</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e6f0ee;--card:#fff;--ink:#22304a;--mute:#5d6b80;--tile:#1f8a8a;--sun:#f2a33a;--line:#cfdcd9}
+@media(prefers-color-scheme:dark){:root{--bg:#141c2b;--card:#1d283c;--ink:#e8eef6;--mute:#9aa8bd;--line:#2c3a52}}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font-family:"Bricolage Grotesque",system-ui,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;max-width:760px;margin:auto}
+header{padding:14px 18px 8px;display:flex;justify-content:space-between;align-items:center}
+h1{font-size:28px;font-weight:800;letter-spacing:-1px}
+h1 i{font-style:normal;color:var(--tile)}
+select,button,input,textarea{font:inherit;color:inherit}
+select{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+main{flex:1;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;overflow:auto;padding:8px 18px 90px;display:none}
+.view.on{display:block}
+#v-map{padding:0}
+#map{position:absolute;inset:0}
+.fab{position:absolute;z-index:500;left:50%;bottom:92px;transform:translateX(-50%);background:var(--sun);color:#2a1a00;border:0;border-radius:40px;padding:14px 26px;font-weight:800;font-size:16px;box-shadow:0 6px 18px #0004;cursor:pointer}
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:760px;display:flex;background:var(--card);border-top:1px solid var(--line);z-index:900}
+nav button{flex:1;border:0;background:none;padding:12px 4px 14px;font-size:13px;color:var(--mute);cursor:pointer}
+nav button b{display:block;font-size:20px}
+nav button.on{color:var(--tile);font-weight:800}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.pin{width:18px;height:18px;border-radius:50%;background:var(--sun);border:3px solid #fff;position:relative}
+.pin:before,.pin:after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--sun);animation:wave 2.4s infinite}
+.pin:after{animation-delay:1.2s}
+@keyframes wave{from{transform:scale(1);opacity:.9}to{transform:scale(3.2);opacity:0}}
+@media(prefers-reduced-motion:reduce){.pin:before,.pin:after{animation:none}}
+.stats{display:flex;gap:10px;margin:10px 0 16px}
+.stat{flex:1;background:var(--card);border-radius:16px;padding:14px;border:1px solid var(--line)}
+.stat b{font-size:30px;display:block;color:var(--tile)}
+.stat span{font-size:13px;color:var(--mute)}
+h2{font-size:18px;margin:14px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:30px;padding:6px 14px}
+.item{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:10px;cursor:pointer;align-items:center;width:100%;text-align:left}
+.ico{width:54px;height:54px;border-radius:14px;display:grid;place-items:center;font-size:28px;flex:none;background:linear-gradient(135deg,var(--tile),#2c5a8f);overflow:hidden}
+.ico img{width:100%;height:100%;object-fit:cover}
+.item small{color:var(--mute)}
+.empty{color:var(--mute);padding:20px 0}
+dialog{border:0;border-radius:20px;padding:20px;width:min(520px,92vw);max-height:88vh;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:#0007}
+dialog h3{font-size:22px;margin-bottom:4px}
+dialog p{line-height:1.55;margin:10px 0;max-width:62ch}
+label{display:block;margin:12px 0 4px;font-weight:600;font-size:14px}
+input[type=text],textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+.btn{border:0;border-radius:12px;padding:11px 18px;font-weight:800;cursor:pointer;background:var(--tile);color:#fff;margin:6px 6px 0 0}
+.btn.alt{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.btn.rec{background:#d64545}
+.media{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin:10px 0}
+.media img,.media video{width:100%;border-radius:10px;max-height:160px;object-fit:cover}
+audio{width:100%;margin:6px 0}
+.hero{height:150px;border-radius:16px;display:grid;place-items:center;font-size:64px;background:linear-gradient(135deg,var(--tile),#2c5a8f);margin:10px 0;overflow:hidden}
+.hero img{width:100%;height:100%;object-fit:cover}
+</style>
+</head>
+<body>
+<header>
+  <h1>Iz<i>lar</i></h1>
+  <select id="lang" aria-label="Til"><option value="uz">O‘zbekcha</option><option value="ru">Русский</option><option value="en">English</option></select>
+</header>
+<main>
+  <section class="view on" id="v-map"><div id="map"></div><button class="fab" id="here"></button></section>
+  <section class="view" id="v-me"></section>
+  <section class="view" id="v-disc"></section>
+</main>
+<nav>
+  <button data-v="map" class="on"><b>🗺️</b><span data-t="nMap"></span></button>
+  <button data-v="me"><b>📔</b><span data-t="nMe"></span></button>
+  <button data-v="disc"><b>🧭</b><span data-t="nDisc"></span></button>
+</nav>
+
+<dialog id="dAdd">
+  <h3 data-t="addT"></h3>
+  <p id="addPos" style="color:var(--mute);margin:2px 0"></p>
+  <label data-t="name"></label><input type="text" id="fName">
+  <label data-t="note"></label><textarea id="fNote" rows="3"></textarea>
+  <label data-t="files"></label><input type="file" id="fFiles" accept="image/*,video/*" multiple>
+  <label data-t="sound"></label>
+  <button class="btn" id="recBtn" type="button"></button><span id="recSt"></span>
+  <audio id="recAudio" controls hidden></audio>
+  <div style="margin-top:14px"><button class="btn" id="save" type="button" data-t="save"></button><button class="btn alt" id="cancel" type="button" data-t="cancel"></button></div>
+</dialog>
+
+<dialog id="dVisit"></dialog>
+<dialog id="dPlace"></dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ---------- Tarjimalar ---------- */
+const T={
+uz:{nMap:"Xarita",nMe:"Sayohatlarim",nDisc:"Kashf et",here:"📍 Bu yerdaman",addT:"Yangi xotira",name:"Joy nomi",note:"Izoh",files:"Rasm va videolar",sound:"Joyning ovozi (10–30 soniya)",rec:"🎙️ Yozishni boshlash",stop:"⏹ To‘xtatish",save:"Saqlash",cancel:"Bekor qilish",close:"Yopish",listen:"🔊 Eshitish",stopL:"⏹ To‘xtatish",places:"Joylar",countries:"Davlatlar",media:"Rasm/video",myPlaces:"Borgan joylarim",emptyMe:"Hali xotira yo‘q. Xaritada «Bu yerdaman» tugmasini bosing.",gps:"GPS topilmadi. Xaritani bosib joyni tanlang.",tapMap:"Xaritani bosib joyni aniqlashtirishingiz mumkin.",discT:"Mashhur joylar",noMic:"Mikrofonga ruxsat berilmadi.",noVoice:"Bu qurilmada tanlangan til uchun ovoz yo‘q. Matnni o‘qing.",unknown:"Noma’lum",ago:"Sana"},
+ru:{nMap:"Карта",nMe:"Мои поездки",nDisc:"Открыть",here:"📍 Я здесь",addT:"Новое воспоминание",name:"Название места",note:"Заметка",files:"Фото и видео",sound:"Звук места (10–30 секунд)",rec:"🎙️ Начать запись",stop:"⏹ Остановить",save:"Сохранить",cancel:"Отмена",close:"Закрыть",listen:"🔊 Слушать",stopL:"⏹ Стоп",places:"Места",countries:"Страны",media:"Фото/видео",myPlaces:"Мои места",emptyMe:"Пока пусто. Нажмите «Я здесь» на карте.",gps:"GPS недоступен. Нажмите на карту, чтобы выбрать место.",tapMap:"Можно уточнить место, нажав на карту.",discT:"Известные места",noMic:"Нет доступа к микрофону.",noVoice:"Для этого языка нет голоса на устройстве. Читайте текст.",unknown:"Неизвестно",ago:"Дата"},
+en:{nMap:"Map",nMe:"My trips",nDisc:"Discover",here:"📍 I’m here",addT:"New memory",name:"Place name",note:"Note",files:"Photos and videos",sound:"Sound of the place (10–30 s)",rec:"🎙️ Start recording",stop:"⏹ Stop",save:"Save",cancel:"Cancel",close:"Close",listen:"🔊 Listen",stopL:"⏹ Stop",places:"Places",countries:"Countries",media:"Photos/videos",myPlaces:"Places I’ve been",emptyMe:"No memories yet. Tap “I’m here” on the map.",gps:"GPS not found. Tap the map to pick a spot.",tapMap:"You can fine-tune the spot by tapping the map.",discT:"Famous places",noMic:"Microphone access denied.",noVoice:"No voice for this language on your device. Please read the text.",unknown:"Unknown",ago:"Date"}
+};
+/* Tavsiya etiladigan joylar. img maydoniga rasm havolasini qo‘ying. */
+const PLACES=[
+{id:1,e:"🕌",img:"",c:"Oʻzbekiston",n:{uz:"Registon, Samarqand",ru:"Регистан, Самарканд",en:"Registan, Samarkand"},t:{
+uz:"Registon XV–XVII asrlarda qurilgan uchta madrasadan iborat: Ulug‘bek, Sherdor va Tillakori. U Buyuk ipak yo‘lidagi eng muhim savdo va ilm markazlaridan biri bo‘lgan. Kechqurun maydon chiroqlar bilan yoritiladi.",
+ru:"Регистан состоит из трёх медресе XV–XVII веков: Улугбека, Шердор и Тилля-Кари. Он был одним из главных центров торговли и науки на Великом шёлковом пути. Вечером площадь подсвечивается огнями.",
+en:"The Registan is made of three madrasas built in the 15th–17th centuries: Ulugh Beg, Sher-Dor and Tilya-Kori. It was a major centre of trade and learning on the Silk Road. In the evening the square is lit up."},lat:39.6547,lng:66.9758},
+{id:2,e:"🧱",img:"",c:"Oʻzbekiston",n:{uz:"Ichan Qal’a, Xiva",ru:"Ичан-Кала, Хива",en:"Itchan Kala, Khiva"},t:{
+uz:"Ichan Qal’a Xivaning loydan qurilgan eski shahri bo‘lib, 1990-yilda YuNESKO ro‘yxatiga kiritilgan. Ichida 50 dan ortiq tarixiy obida bor. Eng mashhuri Kalta minor.",
+ru:"Ичан-Кала — старый глинобитный город Хивы, с 1990 года в списке ЮНЕСКО. Здесь более 50 исторических памятников, самый известный из них — минарет Кальта-Минор.",
+en:"Itchan Kala is the walled old town of Khiva, a UNESCO site since 1990. It holds over 50 historic monuments, the best known being the Kalta Minor minaret."},lat:41.3786,lng:60.3597},
+{id:3,e:"🛒",img:"",c:"Oʻzbekiston",n:{uz:"Chorsu bozori, Toshkent",ru:"Базар Чорсу, Ташкент",en:"Chorsu Bazaar, Tashkent"},t:{
+uz:"Chorsu Toshkentning eng qadimiy bozorlaridan biri. Katta yashil gumbaz ostida non, ziravorlar, quruq mevalar va go‘sht sotiladi. Bu yerning ovozi: savdogarlarning qichqirig‘i va tandir non hidi.",
+ru:"Чорсу — один из старейших рынков Ташкента. Под большим зелёным куполом продают лепёшки, специи, сухофрукты и мясо. Звук этого места — голоса торговцев и запах тандырного хлеба.",
+en:"Chorsu is one of Tashkent’s oldest markets. Under a big green dome you find bread, spices, dried fruit and meat. Its sound is the call of the sellers and the smell of tandoor bread."},lat:41.3265,lng:69.2349},
+{id:4,e:"🗼",img:"",c:"Fransiya",n:{uz:"Eyfel minorasi, Parij",ru:"Эйфелева башня, Париж",en:"Eiffel Tower, Paris"},t:{
+uz:"Eyfel minorasi 1889-yilgi Butunjahon ko‘rgazmasi uchun qurilgan. Balandligi taxminan 330 metr. Dastlab vaqtincha inshoot deb o‘ylangan, lekin Parij ramziga aylandi.",
+ru:"Эйфелева башня построена к Всемирной выставке 1889 года. Её высота около 330 метров. Сначала её считали временной, но она стала символом Парижа.",
+en:"The Eiffel Tower was built for the 1889 World’s Fair and is about 330 metres tall. It was meant to be temporary but became the symbol of Paris."},lat:48.8584,lng:2.2945},
+{id:5,e:"🏛️",img:"",c:"Italiya",n:{uz:"Kolizey, Rim",ru:"Колизей, Рим",en:"Colosseum, Rome"},t:{
+uz:"Kolizey eramizning 80-yilida ochilgan amfiteatr. Unga 50 mingga yaqin tomoshabin sig‘gan. Bugun u dunyodagi eng ko‘p tashrif buyuriladigan tarixiy joylardan biri.",
+ru:"Колизей — амфитеатр, открытый в 80 году н. э. Он вмещал около 50 тысяч зрителей. Сегодня это одно из самых посещаемых исторических мест мира.",
+en:"The Colosseum is an amphitheatre opened in 80 AD. It held around 50,000 spectators and is today one of the most visited historic sites in the world."},lat:41.8902,lng:12.4922},
+{id:6,e:"🗻",img:"",c:"Yaponiya",n:{uz:"Fuji tog‘i",ru:"Гора Фудзи",en:"Mount Fuji"},t:{
+uz:"Fuji — Yaponiyaning eng baland cho‘qqisi, balandligi 3776 metr. U uxlab yotgan vulqon va muqaddas joy hisoblanadi. Yoz oylarida minglab sayyohlar cho‘qqiga chiqadi.",
+ru:"Фудзи — высочайшая вершина Японии, 3776 метров. Это спящий вулкан и священное место. Летом на вершину поднимаются тысячи туристов.",
+en:"Mount Fuji is Japan’s highest peak at 3,776 metres. It is a dormant volcano and a sacred site. In summer thousands of hikers climb it."},lat:35.3606,lng:138.7274}
+];
+
+/* ---------- Yordamchilar ---------- */
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+let lang=localStorage.getItem("izlar-lang")||"uz";
+const tr=k=>T[lang][k];
+const flag=cc=>cc&&cc.length===2?String.fromCodePoint(...[...cc.toUpperCase()].map(c=>127397+c.charCodeAt(0))):"🌍";
+
+/* ---------- IndexedDB ---------- */
+let db;
+const dbReady=new Promise(res=>{
+  const r=indexedDB.open("izlar",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("visits",{keyPath:"id"});
+  r.onsuccess=()=>{db=r.result;res()};
+  r.onerror=()=>res();
+});
+const all=()=>new Promise(res=>{ if(!db)return res([]); const q=db.transaction("visits").objectStore("visits").getAll(); q.onsuccess=()=>res(q.result); q.onerror=()=>res([]) });
+const put=v=>new Promise(res=>{ if(!db)return res(); const t=db.transaction("visits","readwrite"); t.objectStore("visits").put(v); t.oncomplete=res; t.onerror=res });
+
+/* ---------- Xarita ---------- */
+const map=L.map("map",{zoomControl:false}).setView([41.3,64.6],5);
+L.control.zoom({position:"topright"}).addTo(map);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const pinIcon=L.divIcon({className:"",html:'<div class="pin"></div>',iconSize:[18,18],iconAnchor:[9,9]});
+let markers=[],pending=null,pendMarker=null;
+
+map.on("click",e=>{
+  if(!$("#dAdd").open)return;
+  setPending(e.latlng.lat,e.latlng.lng,false);
+});
+
+async function drawVisits(){
+  markers.forEach(m=>m.remove()); markers=[];
+  const vs=await all();
+  vs.forEach(v=>{
+    const m=L.marker([v.lat,v.lng],{icon:pinIcon}).addTo(map).on("click",()=>showVisit(v));
+    markers.push(m);
+  });
+  return vs;
+}
+
+/* ---------- Yangi xotira qo‘shish ---------- */
+let recorder=null,chunks=[],audioBlob=null;
+function setPending(lat,lng,fresh){
+  pending={lat,lng};
+  $("#addPos").textContent=`${lat.toFixed(4)}, ${lng.toFixed(4)}  ·  ${tr("tapMap")}`;
+  if(pendMarker)pendMarker.remove();
+  pendMarker=L.marker([lat,lng],{icon:pinIcon}).addTo(map);
+  if(fresh)map.setView([lat,lng],14);
+}
+function openAdd(lat,lng,msg){
+  $("#fName").value="";$("#fNote").value="";$("#fFiles").value="";
+  audioBlob=null;$("#recAudio").hidden=true;$("#recSt").textContent=msg||"";
+  $("#recBtn").textContent=tr("rec");$("#recBtn").classList.remove("rec");
+  setPending(lat,lng,!msg);
+  $("#dAdd").show();
+}
+$("#here").onclick=()=>{
+  if(!navigator.geolocation){openAdd(map.getCenter().lat,map.getCenter().lng,tr("gps"));return}
+  navigator.geolocation.getCurrentPosition(
+    p=>openAdd(p.coords.latitude,p.coords.longitude),
+    ()=>openAdd(map.getCenter().lat,map.getCenter().lng,tr("gps")),
+    {enableHighAccuracy:true,timeout:10000});
+};
+$("#recBtn").onclick=async()=>{
+  if(recorder&&recorder.state==="recording"){recorder.stop();return}
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({audio:true});
+    recorder=new MediaRecorder(s);chunks=[];
+    recorder.ondataavailable=e=>chunks.push(e.data);
+    recorder.onstop=()=>{
+      s.getTracks().forEach(t=>t.stop());
+      audioBlob=new Blob(chunks,{type:recorder.mimeType});
+      $("#recAudio").src=URL.createObjectURL(audioBlob);$("#recAudio").hidden=false;
+      $("#recBtn").textContent=tr("rec");$("#recBtn").classList.remove("rec");$("#recSt").textContent="";
+    };
+    recorder.start();
+    $("#recBtn").textContent=tr("stop");$("#recBtn").classList.add("rec");
+    setTimeout(()=>{if(recorder.state==="recording")recorder.stop()},30000);
+  }catch(e){$("#recSt").textContent=tr("noMic")}
+};
+$("#cancel").onclick=()=>{$("#dAdd").close();if(pendMarker){pendMarker.remove();pendMarker=null}};
+$("#save").onclick=async()=>{
+  if(!pending)return;
+  let country="",cc="",city="";
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=${lang}&lat=${pending.lat}&lon=${pending.lng}`);
+    const j=await r.json();
+    country=j.address?.country||"";cc=j.address?.country_code||"";
+    city=j.address?.city||j.address?.town||j.address?.state||"";
+  }catch(e){}
+  const v={id:Date.now(),lat:pending.lat,lng:pending.lng,country:country||tr("unknown"),cc,city,
+    name:$("#fName").value.trim()||city||tr("unknown"),note:$("#fNote").value.trim(),
+    date:new Date().toISOString(),files:[...$("#fFiles").files],audio:audioBlob};
+  await put(v);
+  $("#dAdd").close();
+  if(pendMarker){pendMarker.remove();pendMarker=null}
+  await drawVisits();renderMe();
+};
+
+/* ---------- Xotira kartochkasi ---------- */
+function showVisit(v){
+  const d=$("#dVisit");
+  const media=v.files.map(f=>{const u=URL.createObjectURL(f);return f.type.startsWith("video")?`<video src="${u}" controls></video>`:`<img src="${u}" alt="">`}).join("");
+  d.innerHTML=`<h3></h3><small style="color:var(--mute)">${flag(v.cc)} ${esc(v.country)} · ${new Date(v.date).toLocaleDateString(lang)}</small>
+    <p></p>${v.audio?`<audio controls src="${URL.createObjectURL(v.audio)}"></audio>`:""}
+    <div class="media">${media}</div><button class="btn alt" id="x1">${tr("close")}</button>`;
+  d.querySelector("h3").textContent=v.name;d.querySelector("p").textContent=v.note;
+  d.querySelector("#x1").onclick=()=>d.close();
+  d.showModal();
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- Mening sayohatlarim ---------- */
+async function renderMe(){
+  const vs=(await all()).sort((a,b)=>b.id-a.id);
+  const cs=[...new Map(vs.map(v=>[v.country,v.cc])).entries()];
+  const mc=vs.reduce((n,v)=>n+v.files.length+(v.audio?1:0),0);
+  const v=$("#v-me");
+  v.innerHTML=`<div class="stats">
+    <div class="stat"><b>${cs.length}</b><span>${tr("countries")}</span></div>
+    <div class="stat"><b>${vs.length}</b><span>${tr("places")}</span></div>
+    <div class="stat"><b>${mc}</b><span>${tr("media")}</span></div></div>
+    <div class="chips">${cs.map(([n,cc])=>`<span class="chip">${flag(cc)} ${esc(n)}</span>`).join("")}</div>
+    <h2>${tr("myPlaces")}</h2>${vs.length?"":`<p class="empty">${tr("emptyMe")}</p>`}<div id="list"></div>`;
+  vs.forEach(x=>{
+    const b=document.createElement("button");b.className="item";
+    const im=x.files.find(f=>f.type.startsWith("image"));
+    b.innerHTML=`<div class="ico">${im?`<img src="${URL.createObjectURL(im)}" alt="">`:(x.audio?"🎙️":"📍")}</div><div><b>${esc(x.name)}</b><br><small>${flag(x.cc)} ${esc(x.country)} · ${new Date(x.date).toLocaleDateString(lang)}</small></div>`;
+    b.onclick=()=>showVisit(x);v.querySelector("#list").append(b);
+  });
+}
+
+/* ---------- Kashf et ---------- */
+function renderDisc(){
+  const v=$("#v-disc");
+  v.innerHTML=`<h2>${tr("discT")}</h2><div id="plist"></div>`;
+  PLACES.forEach(p=>{
+    const b=document.createElement("button");b.className="item";
+    b.innerHTML=`<div class="ico">${p.img?`<img src="${p.img}" alt="">`:p.e}</div><div><b>${p.n[lang]}</b><br><small>${p.c}</small></div>`;
+    b.onclick=()=>showPlace(p);v.querySelector("#plist").append(b);
+  });
+}
+const VOICE={uz:"uz-UZ",ru:"ru-RU",en:"en-US"};
+function showPlace(p){
+  const d=$("#dPlace");
+  d.innerHTML=`<div class="hero">${p.img?`<img src="${p.img}" alt="">`:p.e}</div><h3>${p.n[lang]}</h3><small style="color:var(--mute)">${p.c}</small>
+    <p>${p.t[lang]}</p><button class="btn" id="lis">${tr("listen")}</button><button class="btn alt" id="x2">${tr("close")}</button><p id="vmsg" style="color:var(--mute);font-size:14px"></p>`;
+  const stop=()=>speechSynthesis.cancel();
+  d.querySelector("#lis").onclick=e=>{
+    if(speechSynthesis.speaking){stop();e.target.textContent=tr("listen");return}
+    const u=new SpeechSynthesisUtterance(p.t[lang]);u.lang=VOICE[lang];
+    const has=speechSynthesis.getVoices().some(x=>x.lang.toLowerCase().startsWith(lang));
+    if(!has)d.querySelector("#vmsg").textContent=tr("noVoice");
+    u.onend=()=>e.target.textContent=tr("listen");
+    e.target.textContent=tr("stopL");speechSynthesis.speak(u);
+  };
+  d.querySelector("#x2").onclick=()=>{stop();d.close()};
+  d.onclose=stop;
+  d.showModal();
+}
+
+/* ---------- Til va navigatsiya ---------- */
+function applyLang(){
+  document.documentElement.lang=lang;
+  $$("[data-t]").forEach(e=>e.textContent=tr(e.dataset.t));
+  $("#here").textContent=tr("here");
+  $("#recBtn").textContent=tr("rec");
+  renderDisc();renderMe();
+}
+$("#lang").value=lang;
+$("#lang").onchange=e=>{lang=e.target.value;localStorage.setItem("izlar-lang",lang);applyLang()};
+$$("nav button").forEach(b=>b.onclick=()=>{
+  $$("nav button").forEach(x=>x.classList.toggle("on",x===b));
+  $$(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+b.dataset.v));
+  if(b.dataset.v==="map")setTimeout(()=>map.invalidateSize(),50);
+});
+
+dbReady.then(async()=>{applyLang();await drawVisits()});
+</script>
+</body>
+</html>
