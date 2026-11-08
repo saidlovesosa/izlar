@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Izlar</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4efe6;--card:#fffcf7;--ink:#1c1612;--mute:#7a7168;--or:#e35b12;--or2:#f4a261;
+  --ln:#eadfd0;--soft:#f3eadc;--teal:#1a6b62;--glass:rgba(255,252,247,.82);
+  --shadow:0 10px 32px rgba(48,28,12,.12);--shadow-sm:0 4px 14px rgba(48,28,12,.08);
+  --r:22px;
+}
+[data-dark]{
+  --bg:#12100e;--card:#1c1916;--ink:#f6f0e6;--mute:#aea497;--or:#ff7a32;--or2:#e9a56a;
+  --ln:#322c26;--soft:#26211c;--teal:#5ecfc0;--glass:rgba(28,25,22,.78);
+  --shadow:0 12px 36px rgba(0,0,0,.45);--shadow-sm:0 4px 16px rgba(0,0,0,.28);
+}
+[data-dark] .leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.78) contrast(1.05) saturate(.85)}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{
+  font-family:"Nunito",system-ui,sans-serif;background:var(--bg);color:var(--ink);
+  display:flex;flex-direction:column;letter-spacing:.01em;
+}
+h1,h2,h3,.btn,.chip,nav button{font-family:"Bricolage Grotesque",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--or) 70%,white);outline-offset:2px}
+#app{flex:1;position:relative;overflow:hidden;background:
+  radial-gradient(1200px 500px at 10% -10%,rgba(227,91,18,.12),transparent 55%),
+  var(--bg)}
+#map{position:absolute;inset:0}
+.leaflet-control-zoom{border:0!important;box-shadow:var(--shadow-sm)!important;overflow:hidden;border-radius:16px!important}
+.leaflet-control-zoom a{background:var(--glass)!important;color:var(--ink)!important;border:0!important;backdrop-filter:blur(12px);width:38px!important;height:38px!important;line-height:38px!important;font-size:18px!important}
+.leaflet-control-attribution{background:var(--glass)!important;backdrop-filter:blur(8px);border-radius:10px 0 0 0;color:var(--mute)!important}
+#top{position:absolute;z-index:700;top:14px;left:14px;right:14px;max-width:460px}
+.search{position:relative}
+.search-ic{position:absolute;left:16px;top:50%;transform:translateY(-50%);opacity:.7;pointer-events:none;display:flex;color:var(--mute)}
+#q{width:100%;padding:15px 18px 15px 44px;border-radius:18px;border:1px solid color-mix(in srgb,var(--ln) 70%,transparent);
+  background:var(--glass);backdrop-filter:blur(18px) saturate(1.2);box-shadow:var(--shadow);font-size:16px}
+#q::placeholder{color:var(--mute)}
+#chips{display:flex;gap:8px;overflow-x:auto;padding:12px 2px 4px;scrollbar-width:none}
+#chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid color-mix(in srgb,var(--ln) 80%,transparent);background:var(--glass);
+  backdrop-filter:blur(12px);border-radius:999px;padding:8px 14px;box-shadow:var(--shadow-sm);
+  cursor:pointer;font-size:13.5px;font-weight:600;transition:transform .15s ease,background .15s ease,color .15s ease}
+.chip:hover{transform:translateY(-1px)}
+.chip.on{background:linear-gradient(135deg,var(--or),#c2410c);color:#fff;border-color:transparent;box-shadow:0 8px 18px color-mix(in srgb,var(--or) 35%,transparent)}
+#ctl{position:absolute;z-index:700;right:14px;top:86px;display:flex;flex-direction:column;gap:10px}
+#ctl button{width:48px;height:48px;border-radius:16px;border:1px solid color-mix(in srgb,var(--ln) 70%,transparent);
+  background:var(--glass);backdrop-filter:blur(14px);box-shadow:var(--shadow-sm);font-size:20px;cursor:pointer;transition:transform .15s ease}
+#ctl button:hover{transform:scale(1.05)}
+.sheet{position:absolute;z-index:650;left:0;right:0;bottom:0;background:var(--glass);backdrop-filter:blur(22px) saturate(1.15);
+  border-radius:28px 28px 0 0;padding:8px 18px 20px;max-height:54%;overflow:auto;box-shadow:0 -16px 40px rgba(28,16,8,.16);
+  border:1px solid color-mix(in srgb,white 40%,var(--ln))}
+.sheet:before{content:"";display:block;width:42px;height:5px;border-radius:99px;background:var(--ln);margin:4px auto 12px}
+@media(min-width:800px){
+  .sheet{left:18px;right:auto;width:430px;bottom:18px;border-radius:26px;max-height:72%;padding-top:16px}
+  .sheet:before{display:none}
+}
+.sheet h3{font-size:23px;margin-bottom:4px;letter-spacing:-.02em}
+.sheet small,.mute{color:var(--mute)}
+.btn{border:0;border-radius:14px;padding:11px 15px;font-weight:700;background:var(--soft);cursor:pointer;
+  transition:transform .12s ease,filter .12s ease,box-shadow .12s ease}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.03)}
+.btn.p{background:linear-gradient(135deg,var(--or),#c2410c);color:#fff;box-shadow:0 8px 18px color-mix(in srgb,var(--or) 32%,transparent)}
+.btn.big{width:100%;padding:16px;font-size:17px;border-radius:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.li{display:flex;gap:12px;align-items:center;padding:11px 6px;border-bottom:1px solid var(--ln);cursor:pointer;width:100%;
+  background:none;border-left:0;border-right:0;border-top:0;text-align:left;border-radius:12px;transition:background .15s ease}
+.li:hover{background:color-mix(in srgb,var(--soft) 80%,transparent)}
+.li:last-child{border-bottom:0}
+.av{width:44px;height:44px;border-radius:14px;background:linear-gradient(145deg,var(--or),#9a3412);color:#fff;
+  display:grid;place-items:center;font-weight:800;flex:none;box-shadow:0 6px 14px color-mix(in srgb,var(--or) 28%,transparent)}
+.wimg{width:100%;max-height:180px;object-fit:cover;border-radius:16px;margin:10px 0;box-shadow:var(--shadow-sm)}
+#toast{position:absolute;z-index:1300;left:50%;top:76px;transform:translateX(-50%);background:color-mix(in srgb,var(--ink) 92%,black);
+  color:var(--bg);padding:12px 16px;border-radius:16px;max-width:92%;display:none;text-align:center;
+  box-shadow:var(--shadow);backdrop-filter:blur(10px);font-size:14px}
+#toast button{margin-left:8px}
+#pg{position:absolute;z-index:1100;inset:0;background:
+  radial-gradient(900px 380px at 100% 0,rgba(26,107,98,.1),transparent 50%),
+  radial-gradient(700px 300px at 0 0,rgba(227,91,18,.1),transparent 46%),var(--bg);
+  overflow:auto;padding:22px 20px 36px}
+#pg[hidden]{display:none}
+#pg h1{font-size:32px;font-weight:800;margin-bottom:14px;letter-spacing:-.03em}
+.card{background:var(--card);border-radius:20px;padding:16px;margin-bottom:14px;border:1px solid var(--ln);box-shadow:var(--shadow-sm)}
+.card h3{font-size:19px;letter-spacing:-.02em}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.stats div{background:var(--card);border:1px solid var(--ln);border-radius:16px;padding:12px 8px;text-align:center;box-shadow:var(--shadow-sm)}
+.stats b{display:block;font-size:24px;color:var(--or);font-family:"Bricolage Grotesque",sans-serif}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.grid div{aspect-ratio:1;border-radius:16px;background:var(--card);border:1px solid var(--ln);display:grid;place-items:center;
+  text-align:center;padding:8px;font-size:13px;overflow:hidden;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .15s ease}
+.grid div:hover{transform:translateY(-2px)}
+.grid img{width:100%;height:100%;object-fit:cover}
+nav{display:flex;background:var(--glass);backdrop-filter:blur(18px);border-top:1px solid var(--ln);z-index:1200;padding:4px 6px 8px}
+nav button{flex:1;border:0;background:none;padding:8px 2px 8px;font-size:11px;color:var(--mute);cursor:pointer;border-radius:14px;transition:background .15s ease,color .15s ease}
+nav button b{display:block;font-size:18px;margin-bottom:2px}
+nav button.on{color:var(--or);font-weight:800;background:color-mix(in srgb,var(--or) 12%,transparent)}
+dialog{border:0;border-radius:24px;padding:22px;width:min(520px,92vw);max-height:90vh;background:var(--card);color:var(--ink);
+  box-shadow:0 24px 60px rgba(20,12,6,.28)}
+dialog::backdrop{background:rgba(18,12,8,.55);backdrop-filter:blur(6px)}
+dialog h3{font-size:22px;margin-bottom:6px}
+label{display:block;margin:10px 0 4px;font-weight:700;font-size:13px}
+dialog input[type=text],dialog textarea,dialog select,.f input,.f textarea,.f select{
+  width:100%;background:var(--soft);border:1px solid var(--ln);border-radius:12px;padding:11px 12px}
+.media{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:10px 0}
+.media img,.media video{width:100%;border-radius:12px;max-height:170px;object-fit:cover}
+audio{width:100%;margin:6px 0}
+.pin{width:18px;height:18px;border-radius:50%;background:linear-gradient(145deg,var(--or),#9a3412);border:3px solid #fff;position:relative;box-shadow:0 2px 8px #0004}
+.pin:before,.pin:after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--or);animation:w 2.4s infinite}
+.pin:after{animation-delay:1.2s}
+@keyframes w{from{transform:scale(1);opacity:.9}to{transform:scale(3.2);opacity:0}}
+@media(prefers-reduced-motion:reduce){.pin:before,.pin:after{animation:none}.chip:hover,.btn:hover,#ctl button:hover,.grid div:hover{transform:none}}
+.emo{width:34px;height:34px;border-radius:12px;background:var(--card);border:2px solid color-mix(in srgb,var(--or) 70%,white);
+  display:grid;place-items:center;font-size:16px;box-shadow:0 4px 10px #0003}
+.seg{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.msg{padding:9px 13px;border-radius:16px 16px 16px 6px;margin:6px 0;max-width:80%;background:var(--soft)}
+.msg.me{background:linear-gradient(135deg,var(--or),#c2410c);color:#fff;margin-left:auto;border-radius:16px 16px 6px 16px}
+.kicker{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin:2px 0 6px}
+
+/* ===== Tuzatishlar: qulay joylashuv ===== */
+.search-ic{pointer-events:auto;cursor:pointer}
+#ctl{top:auto;bottom:calc(var(--sh,0px) + 16px);gap:10px;transition:bottom .2s}
+#ctl button{width:50px;height:50px}
+#ctl .fab{width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,var(--or),#c2410c);color:#fff;font-size:26px;border:0;box-shadow:0 10px 24px color-mix(in srgb,var(--or) 45%,transparent)}
+@media(min-width:800px){#ctl{bottom:24px}}
+#toast{top:128px}
+.sheet:before{display:none!important}
+.grab{display:block;width:100%;border:0;background:none;padding:2px 0 12px;cursor:pointer}
+.grab i{display:block;width:44px;height:5px;border-radius:99px;background:var(--ln);margin:0 auto}
+.sheet.min{max-height:none}.sheet.min>*:not(.grab):not(.shx){display:none}
+.sheet h3{padding-right:42px}
+.shx{position:absolute;top:12px;right:14px;width:38px;height:38px;border-radius:12px;border:0;background:var(--soft);cursor:pointer;font-size:16px}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.acts .btn{min-height:48px;display:flex;align-items:center;justify-content:center;gap:6px}
+.acts .full{grid-column:1/-1}
+.pinw{width:36px;height:36px;display:grid;place-items:center}
+.dx-x{float:right;width:38px;height:38px;border-radius:12px;border:0;background:var(--soft);cursor:pointer;margin:-4px -4px 0 8px}
+.dlg-act{position:sticky;bottom:-22px;background:var(--card);padding:12px 0 4px;margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;z-index:2}
+.dlg-act .btn{min-height:46px;flex:1}
+#fpick{width:100%}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+  <div id="top">
+    <div class="search">
+      <span class="search-ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+      <input id="q" placeholder="Qayerga boramiz?" aria-label="Qidiruv">
+    </div>
+    <div id="chips"></div>
+  </div>
+  <div id="ctl"><button class="fab" data-a="leave" aria-label="Izni qoldir">🎙️</button><button data-a="loc" aria-label="Mening joyim">📍</button><button data-a="zin" aria-label="Yaqinlashtirish">＋</button><button data-a="zout" aria-label="Uzoqlashtirish">－</button></div>
+  <div class="sheet" id="sheet"></div>
+  <div id="toast"></div>
+  <div id="pg" hidden></div>
+</div>
+<nav>
+  <button data-a="tab" data-t="map" class="on"><b>🗺️</b>Xarita</button>
+  <button data-a="tab" data-t="mem"><b>📔</b>Xotiralar</button>
+  <button data-a="tab" data-t="tour"><b>🎒</b>Tur</button>
+  <button data-a="tab" data-t="comm"><b>💬</b>Hamjamiyat</button>
+  <button data-a="tab" data-t="me"><b>👤</b>Profil</button>
+</nav>
+<dialog id="da"></dialog><dialog id="dm"></dialog><dialog id="dv"></dialog><dialog id="dx"></dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ===== Yordamchilar ===== */
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const flag=c=>c&&c.length===2?String.fromCodePoint(...[...c.toUpperCase()].map(x=>127397+x.charCodeAt(0))):"🌍";
+const U=new WeakMap(),url=b=>b?(U.get(b)||(U.set(b,URL.createObjectURL(b)),U.get(b))):"";
+const dist=(a,b,c,d)=>{const r=Math.PI/180,x=Math.sin((c-a)*r/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2;return 12742000*Math.asin(Math.sqrt(x))};
+const fmtD=m=>m<1000?Math.round(m)+" m":(m/1000).toFixed(1)+" km";
+const fmtT=s=>s<3600?Math.round(s/60)+" daq":Math.floor(s/3600)+" s "+Math.round(s%3600/60)+" daq";
+const toast=(h,ms=4000)=>{const t=$("#toast");t.innerHTML=h;t.style.display="block";clearTimeout(t.k);t.k=setTimeout(()=>t.style.display="none",ms)};
+const modal=h=>{const d=$("#dx");d.innerHTML=`<button class="dx-x" data-a="closeX" aria-label="Yopish">✕</button>`+h+`<div class="dlg-act"><button class="btn" data-a="closeX">Yopish</button></div>`;d.showModal()};
+const ask=(title,val="")=>new Promise(res=>{const d=$("#da");let v=null;
+  d.innerHTML=`<h3>${esc(title)}</h3><input type="text" id="ai" value="${esc(val)}" style="margin:10px 0 0"><div class="dlg-act"><button class="btn p" id="ao">Saqlash</button><button class="btn" id="ac">Bekor qilish</button></div>`;
+  const fin=x=>{v=x;d.close()};d.onclose=()=>res(v);
+  $("#ao").onclick=()=>fin($("#ai").value.trim()||null);$("#ac").onclick=()=>fin(null);
+  $("#ai").onkeydown=e=>{if(e.key==="Enter")fin($("#ai").value.trim()||null)};
+  d.showModal();$("#ai").focus()});
+const sure=t=>new Promise(res=>{const d=$("#da");let v=false;
+  d.innerHTML=`<h3>${esc(t)}</h3><div class="dlg-act"><button class="btn p" id="ao">Ha</button><button class="btn" id="ac">Yo‘q</button></div>`;
+  d.onclose=()=>res(v);$("#ao").onclick=()=>{v=true;d.close()};$("#ac").onclick=()=>d.close();d.showModal()});
+
+/* ===== Ma’lumotlar: IndexedDB ===== */
+let S,db;
+const DEF={me:{name:"Men",priv:false,dark:null},mems:[],trips:[],routes:[],follow:["a"],comm:{},book:[],chat:{},act:null};
+const dbOpen=()=>new Promise(r=>{const q=indexedDB.open("izlar2",1);q.onupgradeneeded=()=>q.result.createObjectStore("d");q.onsuccess=()=>{db=q.result;r()};q.onerror=()=>r()});
+const dbLoad=()=>new Promise(r=>{if(!db)return r(null);const q=db.transaction("d").objectStore("d").get("s");q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)});
+const save=()=>{try{db&&db.transaction("d","readwrite").objectStore("d").put(S,"s")}catch(e){}};
+function seed(){
+  S=structuredClone(DEF);S.trips=[{id:1,name:"O‘zbekiston 2026"}];S.act=1;
+  const m=(id,name,lat,lng,note,date)=>({id,t:1,name,lat,lng,cc:"uz",country:"Oʻzbekiston",note,date,files:[],audio:null,pub:true,cap:false});
+  S.mems=[m(1,"Registon",39.6547,66.9758,"Kechqurun chiroqlar yonganda maydon boshqacha jonlanadi.","2026-03-14"),
+    m(2,"Kalon minorasi",39.7756,64.4143,"Buxoroda eng esda qolgan joy. Atrofda choy hidi.","2026-03-16"),
+    m(3,"Ichan-Qal’a",41.3786,60.3597,"Xivada loydan qurilgan devorlar quyoshda oltin tusga kiradi.","2026-03-19")];
+}
+
+/* ===== Statik kontent ===== */
+const FAM=[
+ {name:"Registon, Samarqand",lat:39.6547,lng:66.9758,wiki:"Registan"},
+ {name:"Kalon minorasi, Buxoro",lat:39.7756,lng:64.4143,wiki:"Kalyan_Minaret"},
+ {name:"Ichan-Qal’a, Xiva",lat:41.3786,lng:60.3597,wiki:"Itchan_Kala"},
+ {name:"Chorsu bozori, Toshkent",lat:41.3265,lng:69.2349,wiki:"Chorsu_Bazaar"},
+ {name:"Eyfel minorasi, Parij",lat:48.8584,lng:2.2945,wiki:"Eiffel_Tower"},
+ {name:"Kolizey, Rim",lat:41.8902,lng:12.4922,wiki:"Colosseum"}].map(p=>({...p,kind:"fam"}));
+const KN={fam:"Mashhur joy",food:"Ovqatlanish joyi",fuel:"Yoqilg‘i shoxobchasi",bus:"Avtobus bekati",hotel:"Mehmonxona",mem:"Xotira"};
+const IC={fam:"⭐",food:"🍽️",fuel:"⛽",bus:"🚏",hotel:"🏨",fr:"👤"};
+const FR={a:"Aziza",b:"Jasur",c:"Madina"};
+const FPOST=[
+ {u:"a",city:"Samarqand",lat:39.6542,lng:66.9597,text:"Shohizinda ertalab juda sokin. Ovoz yozib oldim, qaytib eshitaman.",d:"2 kun oldin"},
+ {u:"b",city:"Buxoro",lat:39.7747,lng:64.4286,text:"Lab-i Hovuz yonida choyxona topdim, tavsiya qilaman.",d:"5 kun oldin"},
+ {u:"c",city:"Xiva",lat:41.3775,lng:60.3615,text:"Kalta Minor ostida surat tushish uchun eng yaxshi vaqt 17:00.",d:"1 hafta oldin"},
+ {u:"a",city:"Toshkent",lat:41.3111,lng:69.2797,text:"Mustaqillik maydoni kechqurun juda chiroyli.",d:"2 hafta oldin"}];
+const CITIES=["Toshkent","Samarqand","Buxoro","Xiva"];
+const CP={Toshkent:[["👍","Chorsu bozorida quruq mevalar arzon va yangi.","Jasur"],["👎","Metro soat 18:00 da juda gavjum.","Madina"]],
+ Samarqand:[["💡","Registonga ertalab soat 8 da boring, odam kam.","Aziza"],["👍","Siyob bozoridagi non juda mazali.","Jasur"]],
+ Buxoro:[["👍","Lab-i Hovuz kechqurun juda yoqimli.","Madina"],["👎","Markaziy ko‘chada narxlar baland.","Aziza"]],
+ Xiva:[["💡","Ichan-Qal’a ichida bir kecha qolishni tavsiya qilaman.","Jasur"]]};
+const TOURS=[
+ {n:"Ipak yo‘li: 5 kunlik tur",c:"Toshkent → Samarqand → Buxoro",p:"3 200 000 so‘m",g:"Bekzod",e:"🕌"},
+ {n:"Xiva va Xorazm: 3 kun",c:"Urganch → Xiva",p:"1 900 000 so‘m",g:"Dilnoza",e:"🧱"},
+ {n:"Chorvoq va tog‘lar: 1 kun",c:"Toshkent viloyati",p:"450 000 so‘m",g:"Sardor",e:"⛰️"}];
+const MENU=[["Osh","42 000"],["Lag‘mon","35 000"],["Shashlik (2 dona)","38 000"],["Somsa","12 000"],["Choy (choynak)","8 000"]];
+
+/* ===== Xarita ===== */
+const map=L.map("map",{zoomControl:false}).setView([41.3,64.6],5);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const LG=k=>L.layerGroup().addTo(map);
+const layer={mem:LG(),route:LG(),fam:LG(),fr:LG(),poi:{food:LG(),fuel:LG(),bus:LG(),hotel:LG()},me:LG()};
+const pinIcon=L.divIcon({className:"",html:'<div class="pinw"><div class="pin"></div></div>',iconSize:[36,36],iconAnchor:[18,18]});
+const emo=e=>L.divIcon({className:"",html:`<div class="emo">${e}</div>`,iconSize:[32,32],iconAnchor:[16,16]});
+let pos=null,CUR=null,R=null,pendMark=null;
+let gpsMsg="";
+const gpsFail=e=>{gpsMsg=location.protocol==="file:"?"Fayl to‘g‘ridan-to‘g‘ri ochilgan, shuning uchun GPS ishlamaydi. GitHub Pages, Netlify yoki VS Code Live Server orqali oching.":(e&&e.code===1?"GPS ruxsati berilmadi. Brauzer manzil satridagi 🔒 belgisidan ruxsat bering.":"GPS joyni aniqlay olmadi. Xaritadan joyni o‘zingiz tanlang.")};
+const getPos=()=>new Promise(r=>{
+  if(pos&&Date.now()-pos.t<20000)return r(pos);
+  if(!navigator.geolocation){gpsFail();r(null);return}
+  navigator.geolocation.getCurrentPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude,t:Date.now()};setMe();r(pos)},e=>{gpsFail(e);r(null)},{enableHighAccuracy:true,timeout:8000})});
+const here=async()=>(await getPos())||{lat:map.getCenter().lat,lng:map.getCenter().lng,fake:1};
+
+function drawMems(){
+  layer.mem.clearLayers();
+  S.mems.forEach(m=>L.marker([m.lat,m.lng],{icon:pinIcon,zIndexOffset:500}).addTo(layer.mem).on("click",()=>A.viewMem({id:m.id})));
+}
+function drawFam(){layer.fam.clearLayers();FAM.forEach((p,i)=>L.marker([p.lat,p.lng],{icon:emo("⭐")}).addTo(layer.fam).on("click",()=>placeCard(p)))}
+function drawFr(){layer.fr.clearLayers();FPOST.filter(p=>S.follow.includes(p.u)).forEach(p=>L.marker([p.lat,p.lng],{icon:emo("👤")}).addTo(layer.fr).bindPopup(`<b>${FR[p.u]}</b><br>${esc(p.city)}: ${esc(p.text)}`))}
+
+/* ===== Chiplar ===== */
+const CH=[["fam","⭐ Mashhur"],["food","🍽️ Ovqat"],["fuel","⛽ Yoqilg‘i"],["bus","🚏 Bekat"],["hotel","🏨 Mehmonxona"],["fr","👥 Do‘stlar"],["world","🌍 Dunyom"]];
+const on=new Set(["fam"]);
+function chips(){$("#chips").innerHTML=CH.map(([k,t])=>`<button class="chip ${on.has(k)?"on":""}" data-a="chip" data-k="${k}">${t}</button>`).join("")}
+const rq={};let poiT=null;
+async function poi(k,fresh){
+  if(map.getZoom()<13){
+    if(!fresh)return;
+    const c=pos&&dist(pos.lat,pos.lng,map.getCenter().lat,map.getCenter().lng)<3000?pos:map.getCenter();
+    toast("Yaqinlashtirilmoqda…",1800);map.once("moveend",()=>poi(k));map.setView([c.lat,c.lng],14);return}
+  const b=map.getBounds(),bb=[b.getSouth(),b.getWest(),b.getNorth(),b.getEast()].join(","),id=(rq[k]=(rq[k]||0)+1);
+  const f={food:'["amenity"~"restaurant|cafe|fast_food"]',fuel:'["amenity"="fuel"]',bus:'["highway"="bus_stop"]',hotel:'["tourism"~"hotel|hostel|guest_house"]'}[k];
+  try{
+    const r=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(`[out:json][timeout:15];nwr${f}(${bb});out center 40;`),signal:AbortSignal.timeout(16000)});
+    const j=await r.json();if(id!==rq[k]||!on.has(k))return;
+    layer.poi[k].clearLayers();
+    if(!j.elements.length)toast("Bu hududda topilmadi, xaritani boshqa joyga suring");
+    j.elements.forEach(e=>{const lat=e.lat??e.center?.lat,lng=e.lon??e.center?.lon;if(lat==null)return;
+      const p={name:e.tags?.name||KN[k],lat,lng,kind:k};
+      L.marker([lat,lng],{icon:emo(IC[k])}).addTo(layer.poi[k]).on("click",()=>placeCard(p))});
+  }catch(e){if(id===rq[k])toast("Ma’lumot yuklanmadi, internetni tekshiring")}
+}
+map.on("moveend",()=>{clearTimeout(poiT);poiT=setTimeout(()=>{if(map.getZoom()>=13)["food","fuel","bus","hotel"].forEach(k=>on.has(k)&&poi(k))},900)});
+/* ===== Pastki panel ===== */
+const sheet=(h,v)=>{const s=$("#sheet");s.dataset.v=v||"x";s.classList.remove("min");
+  s.innerHTML=`<button class="grab" data-a="grab" aria-label="Panelni yig‘ish yoki ochish"><i></i></button>`+(v==="home"?"":`<button class="shx" data-a="home" aria-label="Yopish">✕</button>`)+h;s.hidden=false};
+const side=()=>matchMedia("(min-width:800px)").matches;
+const pad=()=>({paddingTopLeft:[side()?470:40,130],paddingBottomRight:[70,side()?40:($("#sheet").offsetHeight||0)+30]});
+function flyFocus(lat,lng,z){z=z||map.getZoom();const p=map.project([lat,lng],z);if(side())p.x-=230;else p.y+=Math.max(0,($("#sheet").offsetHeight||0)/2-40);map.flyTo(map.unproject(p,z),z,{duration:1})}
+const posTxt=q=>q?`${q.lat.toFixed(4)}, ${q.lng.toFixed(4)}`:"Joy tanlanmagan";
+async function home(){
+  const c=pos||map.getCenter();
+  const near=FAM.map((p,i)=>({p,i,d:dist(c.lat,c.lng,p.lat,p.lng)})).sort((a,b)=>a.d-b.d).slice(0,3);
+  sheet(`<p class="kicker">Izlar</p>
+    <button class="btn p big" data-a="leave">🎙️ Izni qoldir</button>
+    <p class="mute" style="margin:12px 0 4px">Yaqin mashhur joylar</p>
+    ${near.map(x=>`<button class="li" data-a="fam" data-i="${x.i}"><div class="av">⭐</div><div><b>${esc(x.p.name)}</b><br><small>${fmtD(x.d)}</small></div></button>`).join("")}`,"home");
+}
+function placeCard(p){
+  CUR=p;
+  const food=p.kind==="food",hotel=p.kind==="hotel";
+  sheet(`<p class="kicker">${KN[p.kind]||"Joy"}</p><h3>${esc(p.name)}</h3><div id="wi"></div>
+   <div class="acts"><button class="btn p full" data-a="route">🧭 Marshrut</button><button class="btn" data-a="leave2">🎙️ Izni qoldir</button><button class="btn" data-a="taxi">🚕 Taksi</button>
+   ${food?'<button class="btn" data-a="menu">📖 Menyu</button><button class="btn" data-a="book" data-k="Stol">🪑 Joy band qilish</button>':""}
+   ${hotel?'<button class="btn full" data-a="book" data-k="Xona">🛏️ Xona band qilish</button>':""}</div>
+   ${food||hotel?'<small class="mute">Menyu va band qilish: simulyatsiya (beta).</small>':""}`,"place");
+  flyFocus(p.lat,p.lng,Math.max(map.getZoom(),15));
+  if(p.wiki)fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+p.wiki).then(r=>r.json()).then(j=>{
+    const w=$("#wi");if(w&&CUR===p)w.innerHTML=(j.thumbnail?`<img class="wimg" src="${j.thumbnail.source}" alt="">`:"")+`<p>${esc(j.extract)}</p><small class="mute">Matn ingliz tilida (tarjima keyingi versiyada).</small>`}).catch(()=>{});
+}
+
+/* ===== Marshrut ===== */
+let rtok=0;
+async function route(){
+  const to=CUR,tk=++rtok,from=await here();
+  if(from.fake)toast(gpsMsg+" Xarita markazidan hisoblandi.",7000);
+  const g=async m=>{const r=await fetch(`https://routing.openstreetmap.de/routed-${m}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`);const j=await r.json();if(!j.routes||!j.routes[0])throw 0;return j.routes[0]};
+  sheet("<p>Marshrut hisoblanmoqda…</p>","route");
+  const [car,foot]=await Promise.allSettled([g("car"),g("foot")]);
+  if(tk!==rtok)return;
+  if(!car.value&&!foot.value){sheet(`<h3>Marshrut topilmadi</h3><p class="mute">Internetni tekshiring yoki boshqa joyni tanlang.</p>`,"route");return}
+  R={car:car.value,foot:foot.value,mode:car.value?"car":"foot",to,from};drawRoute();
+}
+function drawRoute(){
+  const r=R[R.mode];layer.route.clearLayers();
+  const ll=r.geometry.coordinates.map(c=>[c[1],c[0]]);
+  L.polyline(ll,{color:"#ff7a1a",weight:6}).addTo(layer.route);
+  L.circleMarker([R.from.lat,R.from.lng],{radius:7,color:"#fff",fillColor:"#2b7fff",fillOpacity:1,weight:3}).addTo(layer.route);
+  const row=(m,ic)=>R[m]?`<button class="li" data-a="mode" data-m="${m}" style="${R.mode===m?"font-weight:800":""}"><div class="av" style="${R.mode===m?"":"background:var(--soft);color:var(--ink);box-shadow:none"}">${ic}</div><div>${fmtT(R[m].duration)} · ${fmtD(R[m].distance)}</div></button>`:"";
+  sheet(`<h3>${esc(R.to.name)}</h3>${row("car","🚗")}${row("foot","🚶")}
+    <div class="acts"><button class="btn p full" data-a="saveRoute">💾 Marshrutni saqlash</button><button class="btn" data-a="taxi">🚕 Taksi</button><button class="btn" data-a="home">Yopish</button></div>`,"route");
+  requestAnimationFrame(()=>map.fitBounds(ll,pad()));
+}
+/* ===== Xotira qo‘shish va tahrirlash ===== */
+let rec=null,recBlob=null;
+const vidOk=f=>new Promise(r=>{if(!f.type.startsWith("video"))return r(true);if(f.size>40e6)return r(false);const v=document.createElement("video");v.preload="metadata";v.onloadedmetadata=()=>r(v.duration<=61);v.onerror=()=>r(true);v.src=URL.createObjectURL(f)});
+function memForm(m,p){
+  recBlob=m?.audio||null;editPos=null;picking=false;
+  const d=$("#dm");
+  d.innerHTML=`<button class="dx-x" id="fx2" type="button" aria-label="Yopish">✕</button><h3>${m?"Xotirani tahrirlash":"Yangi xotira"}</h3>
+   <div class="mute" id="mpos" style="font-size:13px">${posTxt(p||m)}</div>
+   <button class="btn" id="fpick" type="button" style="margin-top:8px">📍 Xaritadan joy tanlash</button>
+   <label>Joy nomi</label><input type="text" id="fn" value="${esc(m?.name||"")}">
+   <label>Izoh</label><textarea id="fo" rows="3">${esc(m?.note||"")}</textarea>
+   <label>Safar</label><select id="ft">${S.trips.map(t=>`<option value="${t.id}" ${(m?.t||S.act)==t.id?"selected":""}>${esc(t.name)}</option>`).join("")}<option value="new">➕ Yangi safar…</option></select>
+   <label>Rasm va videolar (video 60 soniyagacha)</label><input type="file" id="ff" accept="image/*,video/*" multiple>
+   <label>Joyning ovozi (30 soniyagacha)</label><button class="btn" id="rb" type="button">🎙️ Yozish</button>
+   <audio id="ra" controls ${recBlob?`src="${url(recBlob)}"`:"hidden"}></audio>
+   <label><input type="checkbox" id="fc" ${m?.cap?"checked":""}> 🔒 Kapsula: faqat shu joyga qaytganda ochiladi</label>
+   <label><input type="checkbox" id="fp" ${(m?m.pub:!S.me.priv)?"checked":""}> Do‘stlarga ko‘rinsin</label>
+   <div class="dlg-act"><button class="btn p" id="fs" type="button">Saqlash</button><button class="btn" id="fx" type="button">Bekor qilish</button></div>`;
+  $("#rb").onclick=toggleRec;
+  $("#fpick").onclick=()=>{picking=true;d.close();toast("📍 Xaritada kerakli joyni bosing",60000)};
+  $("#fx").onclick=$("#fx2").onclick=()=>{picking=false;d.close()};
+  $("#fs").onclick=()=>saveMem(m,p);
+  d.onclose=()=>{if(!picking){editPos=null;if(pendMark){pendMark.remove();pendMark=null}}};
+  d.showModal();
+}
+async function toggleRec(){
+  const b=$("#rb");
+  if(rec&&rec.state==="recording"){rec.stop();return}
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);const ch=[];
+    rec.ondataavailable=e=>ch.push(e.data);
+    rec.onstop=()=>{s.getTracks().forEach(t=>t.stop());recBlob=new Blob(ch,{type:rec.mimeType});const a=$("#ra");a.src=url(recBlob);a.hidden=false;b.textContent="🎙️ Qayta yozish";b.classList.remove("p")};
+    rec.start();b.textContent="⏹ To‘xtatish";b.classList.add("p");setTimeout(()=>{if(rec.state==="recording")rec.stop()},30000);
+  }catch(e){toast("Mikrofonga ruxsat berilmadi")}
+}
+let editPos=null,picking=false;
+map.on("click",e=>{
+  if(!picking)return;
+  picking=false;editPos={lat:e.latlng.lat,lng:e.latlng.lng};
+  if(pendMark)pendMark.remove();pendMark=L.marker(e.latlng,{icon:pinIcon}).addTo(map);
+  $("#toast").style.display="none";$("#mpos").textContent=posTxt(editPos)+" · joy tanlandi";$("#dm").showModal();
+});
+map.on("contextmenu",e=>{memForm(null,{lat:e.latlng.lat,lng:e.latlng.lng});toast("Uzoqdan xotira qo‘shyapsiz (o‘ng tugma yoki uzoq bosish)")});
+let saving=false;
+async function saveMem(m,p){
+  if(saving)return;
+  const q=editPos||p||m;if(!q){toast("Avval joyni tanlang");return}
+  const files=[...$("#ff").files];
+  for(const f of files)if(!await vidOk(f)){toast("Video 60 soniya va 40 MB dan oshmasligi kerak");return}
+  let tid=$("#ft").value;
+  if(tid==="new"){const n=await ask("Safar nomi (masalan, Turkiya 2026)");if(!n)return;tid=Date.now();S.trips.push({id:tid,name:n})}
+  saving=true;tid=+tid;S.act=tid;
+  const o=m||{id:Date.now(),date:new Date().toISOString(),files:[],cc:"",country:""};
+  Object.assign(o,{t:tid,name:$("#fn").value.trim()||"Nomsiz joy",note:$("#fo").value.trim(),lat:q.lat,lng:q.lng,audio:recBlob,cap:$("#fc").checked,pub:$("#fp").checked});
+  o.files=o.files.concat(files);
+  if(!m)S.mems.push(o);
+  save();saving=false;picking=false;$("#dm").close();
+  drawMems();toast("✅ Xotira saqlandi");
+  if(tab!=="map")go(tab);else flyFocus(o.lat,o.lng,Math.max(map.getZoom(),13));
+  if(!m||!o.cc){try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=3&accept-language=uz,en&lat=${o.lat}&lon=${o.lng}`,{signal:AbortSignal.timeout(5000)});const j=await r.json();o.cc=j.address?.country_code||"";o.country=j.address?.country||"";save();if(tab!=="map")go(tab)}catch(e){}}
+}
+function memView(m){
+  const d=$("#dv");
+  const locked=m.cap&&!(pos&&dist(pos.lat,pos.lng,m.lat,m.lng)<300);
+  d.innerHTML=`<button class="dx-x" data-a="closeV" aria-label="Yopish">✕</button><h3>${esc(m.name)}</h3><small class="mute">${flag(m.cc)} ${esc(m.country)} · ${new Date(m.date).toLocaleDateString("uz")} · ${S.trips.find(t=>t.id===m.t)?.name||""} ${m.pub?"":"· 🔒 maxfiy"}</small>
+   ${locked?`<p style="margin:14px 0">🔒 Bu kapsula faqat shu joyga qaytib kelganingizda ochiladi.</p><button class="btn p" data-a="unlock" data-id="${m.id}">Joyimni tekshirish</button>`:
+   `<p style="margin:10px 0">${esc(m.note)}</p>${m.audio?`<audio controls src="${url(m.audio)}"></audio>`:""}
+    <div class="media">${m.files.map(f=>f.type.startsWith("video")?`<video controls src="${url(f)}"></video>`:`<img src="${url(f)}" alt="">`).join("")}</div>`}
+   <div class="dlg-act"><button class="btn" data-a="editMem" data-id="${m.id}">✏️ Tahrirlash</button><button class="btn" data-a="delMem" data-id="${m.id}">🗑️ O‘chirish</button><button class="btn" data-a="closeV">Yopish</button></div>`;
+  d.showModal();
+}
+
+/* ===== Safarni eshit ===== */
+let stopFn=null,stopped=false,ptok=0;
+async function play(id){
+  const ms=S.mems.filter(m=>m.t==id).sort((a,b)=>a.date<b.date?-1:1);if(!ms.length){toast("Bu safarda hali xotira yo‘q");return}
+  go("map");stopped=false;stopFn&&stopFn();const tk=++ptok;layer.route.clearLayers();
+  const line=L.polyline([],{color:"#ff7a1a",weight:5}).addTo(layer.route),pts=[];
+  for(const m of ms){
+    if(stopped||tk!==ptok)break;
+    pts.push([m.lat,m.lng]);line.setLatLngs(pts);map.flyTo([m.lat,m.lng],11,{duration:1.8});
+    sheet(`<button class="btn" data-a="stopPlay">⏹ To‘xtatish</button>`);await sleep(1900);if(stopped||tk!==ptok)break;
+    const img=m.files.find(f=>f.type.startsWith("image"));
+    sheet(`<button class="btn" data-a="stopPlay" style="float:right">⏹</button><h3>${esc(m.name)}</h3><small class="mute">${new Date(m.date).toLocaleDateString("uz")}</small>${img?`<img class="wimg" src="${url(img)}" alt="">`:""}<p>${esc(m.note)}</p>`);
+    if(m.audio){const a=new Audio(url(m.audio));await new Promise(r=>{stopFn=()=>{a.pause();r()};a.onended=r;a.onerror=r;a.play().catch(r)})}else await sleep(3500);
+  }
+  if(tk===ptok&&!stopped)home();
+}
+
+/* ===== Sahifalar ===== */
+let tab="map",seg="feed",city="Toshkent";
+function go(t){
+  tab=t;$$("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  const pg=$("#pg");pg.hidden=t==="map";
+  if(t==="map"){setTimeout(()=>map.invalidateSize(),50);return}
+  pg.innerHTML={mem:pgMem,tour:pgTour,comm:pgComm,me:pgMe}[t]();
+}
+function pgMem(){
+  return `<p class="kicker">Safarlar</p><h1>Xotiralar</h1><div class="row"><button class="btn p" data-a="newTrip">➕ Yangi safar</button></div>
+  ${S.trips.map(t=>{const ms=S.mems.filter(m=>m.t===t.id),cs=[...new Set(ms.map(m=>m.cc))];
+   return `<div class="card"><h3>${esc(t.name)}</h3><small class="mute">${ms.length} ta xotira ${cs.map(flag).join(" ")}</small>
+   ${ms.map(m=>`<button class="li" data-a="viewMem" data-id="${m.id}"><div class="av">${m.cap?"🔒":m.audio?"🎙️":"📍"}</div><div><b>${esc(m.name)}</b><br><small class="mute">${new Date(m.date).toLocaleDateString("uz")}</small></div></button>`).join("")}
+   <div class="row"><button class="btn p" data-a="play" data-id="${t.id}">▶ Safarni eshit</button><button class="btn" data-a="renTrip" data-id="${t.id}">✏️ Nomi</button><button class="btn" data-a="delTrip" data-id="${t.id}">🗑️</button></div></div>`}).join("")}
+  <h1 style="font-size:22px;margin-top:18px">Saqlangan marshrutlar</h1>
+  ${S.routes.length?S.routes.map(r=>`<div class="card"><h3>${esc(r.name)}</h3><small class="mute">${r.mode==="car"?"🚗":"🚶"} ${fmtD(r.distance)} · ${fmtT(r.duration)}</small><div class="row"><button class="btn p" data-a="showRoute" data-id="${r.id}">Xaritada</button><button class="btn" data-a="delRoute" data-id="${r.id}">🗑️</button></div></div>`).join(""):`<p class="mute">Hali yo‘q. Xaritada marshrut tuzib, «Saqlash» ni bosing.</p>`}`;
+}
+function pgTour(){
+  return `<p class="kicker">Yo‘l-yo‘riq</p><h1>Turlar</h1><p class="mute" style="margin-bottom:12px">Beta: sotib olish va chat simulyatsiya.</p>`+
+  TOURS.map((t,i)=>`<div class="card"><h3>${t.e} ${esc(t.n)}</h3><small class="mute">${esc(t.c)}</small><p style="margin:6px 0"><b>${t.p}</b> · gid: ${t.g}</p>
+   <div class="row"><button class="btn p" data-a="buy" data-i="${i}">Sotib olish</button><button class="btn" data-a="chat" data-i="${i}">💬 Gid bilan gaplashish</button></div></div>`).join("")+
+  (S.book.length?`<h1 style="font-size:22px">Buyurtmalarim (simulyatsiya)</h1>`+S.book.map(b=>`<div class="card">${esc(b)}</div>`).join(""):"");
+}
+function pgComm(){
+  const sg=`<div class="seg"><button class="chip ${seg==="feed"?"on":""}" data-a="seg" data-s="feed">Lenta</button><button class="chip ${seg==="city"?"on":""}" data-a="seg" data-s="city">Shahar hamjamiyati</button></div>`;
+  if(seg==="feed"){
+    const mine=S.mems.filter(m=>m.pub).map(m=>({me:1,m}));
+    const fr=FPOST.filter(p=>S.follow.includes(p.u));
+    return `<p class="kicker">Do‘stlar</p><h1>Hamjamiyat</h1>${sg}
+    <div class="row">${Object.entries(FR).map(([k,n])=>`<button class="btn ${S.follow.includes(k)?"":"p"}" data-a="follow" data-k="${k}">${S.follow.includes(k)?"✓ ":"+ "}${n}</button>`).join("")}</div>
+    ${fr.map(p=>`<div class="card"><div style="display:flex;gap:10px;align-items:center"><div class="av">${FR[p.u][0]}</div><div><b>${FR[p.u]}</b><br><small class="mute">${p.city} · ${p.d}</small></div></div><p style="margin:8px 0">${esc(p.text)}</p><button class="btn" data-a="flyTo" data-la="${p.lat}" data-ln="${p.lng}">📍 Xaritada</button></div>`).join("")||`<p class="mute">Do‘st qo‘shsangiz, ularning sayohatlari shu yerda chiqadi.</p>`}
+    ${mine.map(({m})=>`<div class="card"><div style="display:flex;gap:10px;align-items:center"><div class="av">${esc(S.me.name[0])}</div><div><b>${esc(S.me.name)}</b> (siz)<br><small class="mute">${esc(m.name)}</small></div></div><p style="margin:8px 0">${esc(m.note)}</p>${m.files.find(f=>f.type.startsWith("image"))?`<img class="wimg" src="${url(m.files.find(f=>f.type.startsWith("image")))}" alt="">`:""}</div>`).join("")}`;
+  }
+  const ps=[...(CP[city]||[]),...(S.comm[city]||[])];
+  return `<p class="kicker">Shaharlar</p><h1>Hamjamiyat</h1>${sg}<div class="row">${CITIES.map(c=>`<button class="chip ${c===city?"on":""}" data-a="city" data-c="${c}">${c}</button>`).join("")}</div>
+  ${ps.map(p=>`<div class="card">${p[0]} <b>${esc(p[2])}</b><p>${esc(p[1])}</p></div>`).join("")}
+  <div class="f card"><select id="pk"><option value="👍">👍 Yoqdi</option><option value="👎">👎 Yoqmadi</option><option value="💡">💡 Tavsiya</option></select><textarea id="pt" rows="2" placeholder="${city} haqida fikringiz…" style="margin:8px 0"></textarea><button class="btn p" data-a="post">Yuborish</button></div>`;
+}
+function pgMe(){
+  const cs=new Set(S.mems.map(m=>m.cc).filter(Boolean));
+  return `<p class="kicker">Siz</p><h1>Profil</h1><div class="card" style="display:flex;gap:14px;align-items:center"><div class="av" style="width:64px;height:64px;font-size:26px;border-radius:20px">${esc(S.me.name[0])}</div><div><b style="font-size:22px;font-family:'Bricolage Grotesque',sans-serif">${esc(S.me.name)}</b><br><small class="mute">Sayohatchi · Izlar</small><br><button class="btn" data-a="rename" style="padding:6px 12px;margin-top:8px">✏️ Ismni o‘zgartirish</button></div></div>
+  <div class="stats"><div><b>${cs.size}</b>davlat</div><div><b>${S.mems.length}</b>joy</div><div><b>${S.trips.length}</b>safar</div><div><b>12</b>kuzatuvchi</div><div><b>${S.follow.length}</b>kuzatilmoqda</div><div><b>${S.mems.filter(m=>m.audio).length}</b>ovoz</div></div>
+  <div class="card"><label style="margin:0"><input type="checkbox" data-c="priv" ${S.me.priv?"checked":""}> 🔒 Maxfiy profil (yangi xotiralar do‘stlarga ko‘rinmaydi)</label>
+  <label><input type="checkbox" data-c="dark" ${document.documentElement.hasAttribute("data-dark")?"checked":""}> 🌙 Qorong‘u rejim</label></div>
+  <h1 style="font-size:22px">Mening izlarim</h1>
+  <div class="grid">${S.mems.map(m=>{const im=m.files.find(f=>f.type.startsWith("image"));return `<div data-a="viewMem" data-id="${m.id}">${im?`<img src="${url(im)}" alt="">`:esc(m.name)}${m.pub?"":" 🔒"}</div>`}).join("")}</div>`;
+}
+
+/* ===== Harakatlar ===== */
+const A={
+ tab:d=>go(d.t),
+ closeX:()=>$("#dx").close(),closeV:()=>$("#dv").close(),home:()=>{stopped=true;ptok++;rtok++;stopFn&&stopFn();layer.route.clearLayers();home()},zin:()=>map.zoomIn(),zout:()=>map.zoomOut(),grab:()=>$("#sheet").classList.toggle("min"),
+ chip:d=>{const k=d.k;
+   if(k==="world"){if(S.mems.length)map.fitBounds(S.mems.map(m=>[m.lat,m.lng]),{...pad(),maxZoom:6});else map.setView([30,30],2);toast("🌍 Barcha borgan joylaringiz");return}
+   on.has(k)?on.delete(k):on.add(k);chips();
+   if(k==="fam")on.has(k)?drawFam():layer.fam.clearLayers();
+   else if(k==="fr"){if(on.has(k)){drawFr();toast(S.follow.length?"Do‘stlaringiz izlari ko‘rsatildi":"Avval Hamjamiyat bo‘limida do‘st qo‘shing")}else layer.fr.clearLayers()}
+   else if(on.has(k))poi(k,true);else layer.poi[k].clearLayers()},
+ loc:async()=>{toast("📍 Joy aniqlanmoqda…",2500);const p=await getPos();if(p){flyFocus(p.lat,p.lng,15);home()}else toast(gpsMsg,8000)},
+ leave:async()=>{const p=await here();memForm(null,p);if(p.fake){toast(gpsMsg,7000);$("#fpick").click()}},
+leave2:()=>{memForm(null,{lat:CUR.lat,lng:CUR.lng});$("#fn").value=CUR.name},
+ fam:d=>placeCard(FAM[d.i]),route,
+ mode:d=>{R.mode=d.m;drawRoute()},
+ saveRoute:async()=>{const n=await ask("Marshrut nomi",R.to.name);if(!n)return;const r=R[R.mode];S.routes.push({id:Date.now(),name:n,mode:R.mode,distance:r.distance,duration:r.duration,geo:r.geometry});save();toast("Saqlandi: Xotiralar bo‘limida")},
+ showRoute:d=>{const r=S.routes.find(x=>x.id==d.id);go("map");layer.route.clearLayers();const ll=r.geo.coordinates.map(c=>[c[1],c[0]]);L.polyline(ll,{color:"#ff7a1a",weight:6}).addTo(layer.route);map.fitBounds(ll,{padding:[60,60]})},
+ delRoute:d=>{S.routes=S.routes.filter(x=>x.id!=d.id);save();go("mem")},
+ taxi:async()=>{const to=CUR||R?.to,f=await here(),km=(R&&R.to===to)?R[R.mode].distance/1000:dist(f.lat,f.lng,to.lat,to.lng)/1000;
+   const price=Math.round((5000+km*2800)/500)*500;
+   modal(`<h3>🚕 Taksi (simulyatsiya)</h3><p>${esc(to.name)}</p><p><b>${price.toLocaleString("uz")} so‘m</b> · ${fmtD(km*1000)}</p><div id="tx"><button class="btn p" data-a="callTaxi">Chaqirish</button></div>`)},
+ callTaxi:async()=>{const t=$("#tx");t.innerHTML="⏳ Haydovchi qidirilmoqda…";await sleep(1800);t.innerHTML="✅ Haydovchi topildi: <b>Bobur</b>, Chevrolet Cobalt, 01 A 777 AA. 4 daqiqada yetib keladi.";S.book.push("Taksi: "+(CUR?.name||R?.to.name));save()},
+ menu:()=>modal(`<h3>📖 ${esc(CUR.name)}: menyu</h3>${MENU.map(m=>`<div class="li" style="cursor:default"><div style="flex:1">${m[0]}</div><b>${m[1]}</b></div>`).join("")}<p class="mute">Namunaviy menyu (simulyatsiya).</p>`),
+ book:d=>{S.book.push(`${d.k} band qilindi: ${CUR.name}`);save();toast("✅ Band qilindi (simulyatsiya)")},
+ viewMem:d=>{const m=S.mems.find(x=>x.id==d.id);if(m)memView(m)},
+ editMem:d=>{$("#dv").close();editPos=null;memForm(S.mems.find(x=>x.id==d.id),null)},
+ delMem:async d=>{if(await sure("O‘chirilsinmi?")){S.mems=S.mems.filter(x=>x.id!=d.id);save();$("#dv").close();drawMems();if(tab!=="map")go(tab)}},
+ unlock:async d=>{pos=null;const p=await getPos();const m=S.mems.find(x=>x.id==d.id);if(p&&dist(p.lat,p.lng,m.lat,m.lng)<300){m.cap=false;memView(m);m.cap=true}else toast("Siz hali bu joyda emassiz")},
+ newTrip:async()=>{const n=await ask("Safar nomi");if(n){S.trips.push({id:Date.now(),name:n});save();go("mem")}},
+ renTrip:async d=>{const t=S.trips.find(x=>x.id==d.id),n=await ask("Yangi nom",t.name);if(n){t.name=n;save();go("mem")}},
+ delTrip:async d=>{if(S.trips.length<2){toast("Kamida bitta safar qolishi kerak");return}if(await sure("Safar va undagi xotiralar o‘chiriladi. Davom etamizmi?")){S.mems=S.mems.filter(m=>m.t!=d.id);S.trips=S.trips.filter(t=>t.id!=d.id);S.act=S.trips[0].id;save();drawMems();go("mem")}},
+ play:d=>play(d.id),stopPlay:()=>A.home(),
+ buy:d=>{S.book.push("Tur sotib olindi: "+TOURS[d.i].n);save();toast("✅ Buyurtma qabul qilindi (simulyatsiya)");go("tour")},
+ chat:d=>{const g=TOURS[d.i].g;S.chat[g]=S.chat[g]||[["g","Assalomu alaykum! Men "+g+", turingiz bo‘yicha savolingiz bormi?"]];chatView(g)},
+ send:d=>{const i=$("#ci"),t=i.value.trim();if(!t)return;const c=S.chat[d.g];c.push(["me",t]);i.value="";chatView(d.g);setTimeout(()=>{c.push(["g",["Albatta, bu haqda batafsil aytib beraman.","Tur narxiga transport va mehmonxona kiradi.","Sana va vaqtni birga moslaymiz."][c.length%3]]);save();if($("#dx").open)chatView(d.g)},1000)},
+ follow:d=>{const i=S.follow.indexOf(d.k);i<0?S.follow.push(d.k):S.follow.splice(i,1);save();if(on.has("fr"))drawFr();go("comm")},
+ seg:d=>{seg=d.s;go("comm")},city:d=>{city=d.c;go("comm")},
+ post:()=>{const t=$("#pt").value.trim();if(!t)return;(S.comm[city]=S.comm[city]||[]).push([$("#pk").value,t,S.me.name]);save();go("comm")},
+ flyTo:d=>{go("map");map.flyTo([+d.la,+d.ln],14)},
+ rename:async()=>{const n=await ask("Ismingiz",S.me.name);if(n){S.me.name=n;save();go("me")}}
+};
+function chatView(g){
+  const d=$("#dx");d.innerHTML=`<h3>💬 ${g} (gid)</h3><small class="mute">Simulyatsiya: javoblar avtomatik</small><div id="cl" style="max-height:45vh;overflow:auto;margin:8px 0">${S.chat[g].map(m=>`<div class="msg ${m[0]==="me"?"me":""}">${esc(m[1])}</div>`).join("")}</div>
+   <div class="f" style="display:flex;gap:6px"><input id="ci" placeholder="Xabar yozing"><button class="btn p" data-a="send" data-g="${g}">➤</button></div><div class="row"><button class="btn" data-a="closeX">Yopish</button></div>`;
+  if(!d.open)d.showModal();const cl=$("#cl");cl.scrollTop=cl.scrollHeight;const ci=$("#ci");ci.onkeydown=e=>{if(e.key==="Enter")A.send({g})};
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(b&&A[b.dataset.a])A[b.dataset.a](b.dataset,b)});
+document.addEventListener("change",e=>{
+  const c=e.target.dataset.c;if(!c)return;
+  if(c==="priv"){S.me.priv=e.target.checked}
+  if(c==="dark"){S.me.dark=e.target.checked;applyTheme()}
+  save();
+});
+let SR=[];
+async function doSearch(){
+  const q=$("#q").value.trim();if(!q)return;$("#q").blur();
+  sheet("<p>Qidirilmoqda…</p>","search");
+  try{
+    const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=uz,en&q="+encodeURIComponent(q));const j=await r.json();
+    SR=j.map(x=>({name:x.display_name.split(",").slice(0,3).join(","),lat:+x.lat,lng:+x.lon,kind:""}));
+    sheet(SR.length?`<h3>Natijalar</h3>`+SR.map((p,i)=>`<button class="li" data-a="sr" data-i="${i}"><div class="av">📍</div><div>${esc(p.name)}</div></button>`).join(""):"<h3>Hech narsa topilmadi</h3>","search");
+  }catch(err){sheet("<h3>Qidiruv ishlamadi</h3><p class='mute'>Internetni tekshiring.</p>","search")}
+}
+$("#q").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch()});
+$(".search-ic").addEventListener("click",doSearch);
+A.sr=d=>placeCard(SR[d.i]);
+
+function applyTheme(){
+  const d=S.me.dark===null?matchMedia("(prefers-color-scheme:dark)").matches:S.me.dark;
+  document.documentElement.toggleAttribute("data-dark",d);
+}
+
+/* ===== Yaqin mashhur joy haqida xabar ===== */
+const told=new Set();
+let first=true;
+const setMe=()=>{layer.me.clearLayers();if(pos)L.circleMarker([pos.lat,pos.lng],{radius:8,color:"#fff",fillColor:"#2b7fff",fillOpacity:1,weight:3}).addTo(layer.me)};
+function watch(){
+  if(!navigator.geolocation)return;
+  navigator.geolocation.watchPosition(p=>{
+    pos={lat:p.coords.latitude,lng:p.coords.longitude,t:Date.now()};setMe();
+    if(first){first=false;if(tab==="map"&&$("#sheet").dataset.v==="home"){flyFocus(pos.lat,pos.lng,13);home()}}
+    FAM.forEach((f,i)=>{const d=dist(pos.lat,pos.lng,f.lat,f.lng);
+      if(d<2000&&!told.has(i)){told.add(i);toast(`Siz ${esc(f.name.split(",")[0])}dan ${fmtD(d)} masofadasiz. <button class="btn p" data-a="fam" data-i="${i}" style="padding:6px 12px">Marshrut tuzaymi?</button>`,9000)}})
+  },gpsFail,{enableHighAccuracy:true,maximumAge:15000});
+}
+
+/* ===== Ishga tushirish ===== */
+(async()=>{
+  await dbOpen();S=await dbLoad();
+  if(!S){seed();save()}else S={...structuredClone(DEF),...S};
+  applyTheme();chips();drawMems();drawFam();home();watch();new ResizeObserver(()=>$("#app").style.setProperty("--sh",($("#sheet").hidden?0:$("#sheet").offsetHeight)+"px")).observe($("#sheet"));
+})();
+</script>
+</body>
+</html>
